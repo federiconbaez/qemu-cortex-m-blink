@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    name: host tests (${{ matrix.cc }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Morse compiler and player with ASan + UBSan
+        run: make host-test HOSTCC=${{ matrix.cc }}
+
+  firmware:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install toolchain and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm
+          arm-none-eabi-gcc --version | head -1
+          qemu-system-arm --version | head -1
+      - name: Build
+        run: make all && make size
+      - name: On-target checks in QEMU (semihosting exit code, UART transcript, golden edges, fault image)
+        run: make qemu-test
